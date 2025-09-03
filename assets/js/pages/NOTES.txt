@@ -1,0 +1,4 @@
+FOOD DATABASE IN RECIPES TABLE
+MONTHLY PROGRESS DISPLAYS BMI
+Weight, body measurements, and calorie consumption history
+AI MEAL PLAN ATTACH TO USERS
