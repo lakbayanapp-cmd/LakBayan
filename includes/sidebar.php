@@ -47,50 +47,15 @@ if (!isset($_SESSION['user'])) {
                 </a>
             </li>
 
-    
-        <?php elseif ($userType === 1): ?> <!-- ADMIN -->
-            <li class="side-nav-title side-nav-item">Home</li>
-            <li class="side-nav-item">
-                <a href="dashboard.php" class="side-nav-link">
-                    <i class="uil-dashboard"></i>
-                    <span> Dashboard </span>
-                </a>
-            </li>
-
-            <li class="side-nav-title side-nav-item">User Management</li>
-            <li class="side-nav-item">
-                <a href="users.php" class="side-nav-link">
-                    <i class="uil-users-alt"></i>
-                    <span> System Users </span>
-                </a>
-            </li>
-
-            <li class="side-nav-title side-nav-item">Nutrition Management</li>
-            <li class="side-nav-item">
-                <a href="mealplan.php" class="side-nav-link">
-                    <i class="uil-utensils-alt"></i>
-                    <span> Meal Plan Templates </span>
-                </a>
-            </li>
-            <li class="side-nav-item">
-                <a href="foodrecipes.php" class="side-nav-link">
-                    <i class="uil-book-open"></i>
-                    <span> Food Recipes </span>
-                </a>
-            </li> 
-
-            <li class="side-nav-title side-nav-item">Reports & Analytics</li>
-            <li class="side-nav-item">
-                <a href="reports.php" class="side-nav-link">
-                    <i class="uil-chart"></i>
-                    <span> Reports </span>
-                </a>
-            </li>
-
-       
+  
         <?php endif; ?>
     </ul>
     <div class="clearfix"></div>
+<!-- Contact Message -->
+<div style="padding: 16px; text-align: center; font-size: 14px; color: #555;">
+    For any concerns or inquiries, please contact us at <a href="mailto:lakbayan.app@gmail.com">lakbayan.app@gmail.com</a>
+</div>
+
 </div>
 
                 <!-- Sidebar -left -->
