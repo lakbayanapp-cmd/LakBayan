@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_SESSION['user'] = $userdata; // Store all user data in session
 
             if ($userdata['type'] == 1) {
-            header('Location: dashboard.php');
+            header('Location: terminals.php');
             } else {
             header('Location: dashboard-user.php');
             }
