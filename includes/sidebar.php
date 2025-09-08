@@ -41,13 +41,25 @@ if (!isset($_SESSION['user'])) {
         <?php if ($userType === 0): ?> <!-- USER -->
             <li class="side-nav-title side-nav-item">Main</li>
             <li class="side-nav-item">
-                <a href="dashboard-user.php" class="side-nav-link">
-                    <i class="uil-dashboard"></i>
-                    <span> Book  </span>
-                </a>
+            <a href="dashboard-user.php" class="side-nav-link">
+                <i class="uil-dashboard"></i>
+                <span> Book  </span>
+            </a>
             </li>
-
-  
+        <?php elseif ($userType === 1): ?> <!-- TERMINAL USER -->
+            <li class="side-nav-title side-nav-item">Terminal</li>
+            <li class="side-nav-item">
+            <a href="terminals.php" class="side-nav-link">
+                <i class="fa-solid fa-building"></i>
+                <span> Terminals </span>
+            </a>
+            </li>
+            <li class="side-nav-item">
+            <a href="users.php" class="side-nav-link">
+                <i class="fa-solid fa-users"></i>
+                <span> Users </span>
+            </a>
+            </li>
         <?php endif; ?>
     </ul>
     <div class="clearfix"></div>

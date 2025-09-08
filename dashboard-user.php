@@ -3,8 +3,7 @@
 
 <?php
 
-$id = isset($_GET['id']) ? intval($_GET['id']) : (isset($_SESSION['user']['id']) ? intval($_SESSION['user']['id']) : 0);
-$progress = $db->select('progress', '*', ['user_id' => $id]);
+
 ?>
 <!DOCTYPE html>
     <html lang="en">
@@ -19,6 +18,16 @@ $progress = $db->select('progress', '*', ['user_id' => $id]);
     z-index: 200001 !important;
     position: relative; /* ensure stacking context */
 }
+/* drag handle bar */
+#info-panel .drag-handle {
+  width: 60px;
+  height: 6px;
+  background: #fff;
+  border-radius: 3px;
+  margin: 8px auto;
+  cursor: grab;
+}
+
 
 .profile-dropdown,
 .profile-dropdown .dropdown-menu {
@@ -35,16 +44,15 @@ $progress = $db->select('progress', '*', ['user_id' => $id]);
   color: #fff;
   z-index: 2000;
   padding: 16px;
-
   box-shadow: 0 -3px 10px rgba(0,0,0,0.3);
   border-radius: 16px 16px 0 0;
   font-family: "Segoe UI", sans-serif;
-  transform: translateY(90%); /* Hidden by default */
-  transition: transform 0.3s ease-in-out;
-  max-height: 60vh; /* limit height */
+  transform: translateY(90%); /* default hidden */
+  transition: transform 0.2s ease-out;
+  max-height: 60vh;
   overflow-y: auto;
+  touch-action: none; /* importante para sa mobile drag */
 }
-
 #info-panel.open {
   transform: translateY(0); /* Show panel */
 }
@@ -123,77 +131,137 @@ $progress = $db->select('progress', '*', ['user_id' => $id]);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 
-<body class="loading" data-layout-color="light" data-leftbar-theme="light" data-layout-mode="fluid" data-rightbar-onstart="true">
-    <!-- Begin page -->
-    <div class="wrapper">
-        <?php require_once 'includes/sidebar.php'; ?>  
-        <?php require_once 'includes/topbar.php'; ?>  
-       <button id="nearby-btn" style="position:fixed; top:90px; left:50px; z-index:999; background:#DE28A6; color:#fff; border:none; border-radius:8px; padding:10px 18px; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,0.15); cursor:pointer;">
-            <i class="fa fa-location-arrow"></i> Nearby Terminals
-        </button>
-        <div class="content-page" style="margin:0; padding:0;">
-            <div class="content" style="margin:0; padding:0;">
-            <div class="container-fluid" style="margin:0; padding:0;">
-            <div class="row" style="margin:0; padding:0;"> 
-            <div class="col-12" style="margin:0; padding:0;"> 
-                <div id="map" class="mt-5" style="height:100vh; width:100vw; position:fixed; top:0; left:0; z-index:1;"></div>
-                <!-- Bottom panel for terminal/destination info -->
-       <!-- Bottom panel for terminal/destination info -->
+    <body class="loading" data-layout-color="light" data-leftbar-theme="light" data-layout-mode="fluid" data-rightbar-onstart="true">
+        <!-- Begin page -->
+        <div class="wrapper">
+            <?php require_once 'includes/sidebar.php'; ?>  
+            <?php require_once 'includes/topbar.php'; ?>  
+        <button id="nearby-btn" style="position:fixed; top:90px; left:50px; z-index:3; background:#DE28A6; color:#fff; border:none; border-radius:8px; padding:10px 18px; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,0.15); cursor:pointer;">
+                <i class="fa fa-location-arrow"></i> Nearby Terminals
+            </button>
+            <div class="content-page" style="margin:0; padding:0;">
+                <div class="content" style="margin:0; padding:0;">
+                <div class="container-fluid" style="margin:0; padding:0;">
+                <div class="row" style="margin:0; padding:0;"> 
+                <div class="col-12" style="margin:0; padding:0;"> 
+                    <div id="map" class="mt-5" style="height:100vh; width:100vw; position:fixed; top:0; left:0; z-index:1;"></div>
+                    <!-- Bottom panel for terminal/destination info -->
+        <!-- Bottom panel for terminal/destination info -->
 <div id="info-panel">
-  <!-- Toggle Handle -->
-  <div class="toggle-btn"></div>
-
+  <div class="drag-handle"></div>
   <div class="info-header">
     <img src="assets/images/LakBayan Logo Transparent .png" alt="Terminal Icon" class="info-logo">
     <h5 class="m-0">Trip Information</h5>
   </div>
-  <script>
-    document.querySelector("#info-panel .toggle-btn").addEventListener("click", function() {
-    document.getElementById("info-panel").classList.toggle("open");
-});
+    <script>
+const panel = document.getElementById("info-panel");
+const handle = panel.querySelector(".drag-handle");
 
-</script>
-  
-  <div class="info-fields">
-  <div class="info-card">
-    <strong>Terminal</strong>
-    <img id="terminal-image" src="assets/images/LakBayan Logo Transparent .png" alt="Terminal" style="max-width:60px; display:block; margin:5px auto;">
-    <span id="selected-terminal">None</span>
-  </div>
-  <div class="info-card">
-    <strong>Destination</strong>
-    <span id="selected-destination">None</span>
-  </div>
-  <div class="info-card">
-    <strong>Distance</strong>
-    <span id="distance">-</span> km
-  </div>
-<div class="info-card">
-  <strong>Fare (₱11 base + ₱1/km, rounded up)</strong><br>
-  ₱<span id="fare">-</span>
-</div>
-  <div class="info-card">
-    <strong>ETA</strong>
-    <span id="eta">-</span> mins
-  </div>
+let startY = 0;
+let currentY = 0;
+let startTranslateY = 0; // store panel position before drag
+let isDragging = false;
 
-</div>
+function getCurrentTranslateY() {
+  let matrix = new WebKitCSSMatrix(window.getComputedStyle(panel).transform);
+  return matrix.m42; // Y translation value
+}
+
+handle.addEventListener("mousedown", startDrag);
+handle.addEventListener("touchstart", startDrag, { passive: true });
+
+function startDrag(e) {
+  isDragging = true;
+  startY = e.touches ? e.touches[0].clientY : e.clientY;
+  startTranslateY = getCurrentTranslateY(); // baseline
+  panel.style.transition = "none";
+
+  document.addEventListener("mousemove", drag);
+  document.addEventListener("mouseup", endDrag);
+  document.addEventListener("touchmove", drag, { passive: false });
+  document.addEventListener("touchend", endDrag);
+}
+
+function drag(e) {
+  if (!isDragging) return;
+  currentY = e.touches ? e.touches[0].clientY : e.clientY;
+  let diffY = currentY - startY;
+
+  // combine start position + diff
+  let newTranslateY = startTranslateY + diffY;
+
+  // clamp (0 = open, 90% = closed)
+  const maxTranslate = window.innerHeight * 0.9;
+  if (newTranslateY < 0) newTranslateY = 0;
+  if (newTranslateY > maxTranslate) newTranslateY = maxTranslate;
+
+  panel.style.transform = `translateY(${newTranslateY}px)`;
+  e.preventDefault(); // stop scroll habang drag
+}
+
+function endDrag() {
+  isDragging = false;
+  panel.style.transition = "transform 0.25s ease-out";
+
+  let currentTranslateY = getCurrentTranslateY();
+  const midpoint = window.innerHeight * 0.45; // decide open/close threshold
+
+  if (currentTranslateY < midpoint) {
+    // open
+    panel.style.transform = "translateY(0)";
+  } else {
+    // close
+    panel.style.transform = "translateY(90%)";
+  }
+
+  document.removeEventListener("mousemove", drag);
+  document.removeEventListener("mouseup", endDrag);
+  document.removeEventListener("touchmove", drag);
+  document.removeEventListener("touchend", endDrag);
+}
+
+    </script>
+    
+    <div class="info-fields">
+    <div class="info-card">
+        <strong>Terminal</strong>
+        <img id="terminal-image" src="assets/images/LakBayan Logo Transparent .png" alt="Terminal" style="max-width:60px; display:block; margin:5px auto;">
+        <span id="selected-terminal">None</span>
+    </div>
+    <div class="info-card">
+        <strong>Destination</strong>
+        <span id="selected-destination">None</span>
+    </div>
+    <div class="info-card">
+        <strong>Distance</strong>
+        <span id="distance">-</span> km
+    </div>
+    <div class="info-card">
+    <strong>Fare (₱11 base + ₱1/km, rounded up)</strong><br>
+    ₱<span id="fare">-</span>
+    </div>
+    <div class="info-card">
+        <strong>ETA</strong>
+        <span id="eta">-</span> mins
+    </div>
+
+    </div>
 
 
-  <button id="clear-btn" class="btn-clear">Clear</button>
-</div>
+    <button id="clear-btn" class="btn-clear">Clear</button>
+    </div>
 
 
-            </div>
-            </div>
-            </div>
-            <!-- Leaflet CSS & JS -->
-            <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-            <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
-            <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-            <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
-            <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-       <script>
+                </div>
+                </div>
+                </div>
+                <!-- Leaflet CSS & JS -->
+                <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+                <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+                <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+                <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+                <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
 var userMarker = null;
 var firstUpdate = true;
 var userCircle = null; // Declare userCircle
@@ -252,67 +320,68 @@ document.addEventListener("DOMContentLoaded", function() {
         popupAnchor: [0, -32]
     });
 
-    // Terminals
-    var terminals = [
-        {
-            "name": "SIGNAL Terminal (SUBVTODA)",
-            "lat": 14.508849,
-            "lng": 121.065419,
-            "image": "assets/images/signal.jpg"
-        },
-        {
-            "name": "HAGONOY Terminal (BBEVTODA)",
-            "lat": 14.530245230558448,
-            "lng": 121.05693677750484,
-            "image": "assets/images/hagonoy.jpg"
-        },
-        {
-            "name": "LOWER BICUTAN Terminal (People's Market)",
-            "lat": 14.487963563965842,
-            "lng": 121.06062852616068,
-            "image": "assets/images/lowerbicutan.jpg"
-        },
-        {
-            "name": "USUSAN Terminal",
-            "lat": 14.5323,
-            "lng": 121.0695,
-            "image": "assets/images/usuan.jpg"
-        }
-    ];
-
     var selectedTerminal = null;
     var selectedDestination = null;
     var destinationMarker = null;
     var routingControl = null;
+    // Fetch terminals from database
+    fetch("get-terminals.php")
+        .then(response => response.json())
+        .then(result => {
+            // Fix: Some APIs wrap data inside another 'data' property
+            let terminals = Array.isArray(result.data) ? result.data
+                : (result.data && Array.isArray(result.data.data) ? result.data.data : []);
 
-    // Add terminal markers
-    terminals.forEach(function(terminal) {
-        var marker = L.marker([terminal.lat, terminal.lng], {icon: tricycleIcon})
-            .addTo(map)
-            .on('click', function() {
-                Swal.fire({
-                    title: terminal.name,
-                    html: '<img src="' + terminal.image + '" alt="Terminal Image" style="max-width:300px;display:block;margin:10px auto;">',
-                    text: "Do you want to select this terminal?",
-                    showCancelButton: true,
-                    confirmButtonText: 'Select',
-                    cancelButtonText: 'Cancel',
-                    icon: 'info'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        selectedTerminal = terminal;
-                        document.getElementById('selected-terminal').textContent = terminal.name;
-                        document.getElementById('terminal-image').src = terminal.image;
-                        Swal.fire({
-                            title: 'Select Destination',
-                            text: 'Click anywhere on the map to set your destination.',
-                            icon: 'info'
+            if (result.status === "success" && Array.isArray(terminals)) {
+                // Add terminal markers dynamically
+                terminals.forEach(function(terminal) {
+                    var lat = parseFloat(terminal.latitude);
+                    var lng = parseFloat(terminal.longitude);
+
+                    var marker = L.marker([lat, lng], {icon: tricycleIcon})
+                        .addTo(map)
+                        .on('click', function() {
+                            Swal.fire({
+                                title: terminal.name,
+                                html: `
+                                    <img src="${terminal.image}" alt="Terminal Image" style="max-width:300px;display:block;margin:10px auto;">
+                                    <button id="view-360-btn" style="background:#4285F4;color:#fff;border:none;border-radius:6px;padding:8px 16px;margin:10px auto;display:block;cursor:pointer;">
+                                        <i class="fa fa-street-view"></i> View 360
+                                    </button>
+                                `,
+                                text: "Do you want to select this terminal?",
+                                showCancelButton: true,
+                                confirmButtonText: 'Select',
+                                cancelButtonText: 'Cancel',
+                                icon: 'info',
+                                didOpen: () => {
+                                    document.getElementById('view-360-btn').onclick = function() {
+                                        const lat = terminal.latitude;
+                                        const lng = terminal.longitude;
+                                        const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
+                                        window.open(url, '_blank');
+                                    };
+                                }
+                            }).then((swalResult) => {
+                                if (swalResult.isConfirmed) {
+                                    selectedTerminal = terminal;
+                                    document.getElementById('selected-terminal').textContent = terminal.name;
+                                    document.getElementById('terminal-image').src = terminal.image;
+                                    Swal.fire({
+                                        title: 'Select Destination',
+                                        text: 'Click anywhere on the map to set your destination.',
+                                        icon: 'info'
+                                    });
+                                    enableDestinationSelection();
+                                }
+                            });
                         });
-                        enableDestinationSelection();
-                    }
                 });
-            });
-    });
+            } else {
+                console.error("Failed to load terminals:", result);
+            }
+        })
+        .catch(err => console.error("Error fetching terminals:", err));
 
     function enableDestinationSelection() {
         map.once('click', async function(e) {
@@ -363,7 +432,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
         routingControl = L.Routing.control({
             waypoints: [
-                L.latLng(selectedTerminal.lat, selectedTerminal.lng),
+                L.latLng(selectedTerminal.latitude, selectedTerminal.longitude),
                 L.latLng(selectedDestination.lat, selectedDestination.lng)
             ],
             routeWhileDragging: false,
@@ -415,12 +484,16 @@ document.addEventListener("DOMContentLoaded", function() {
     function updateInfo(route) {
         var distanceKm = route.summary.totalDistance / 1000;
         var roundedKm = Math.ceil(distanceKm);
-        var fare = 11 + roundedKm; // Base 11 + rounded km
+
+        var base = parseFloat(selectedTerminal.base_rate || 11); // default 11 kung walang DB value
+        var perKm = parseFloat(selectedTerminal.per_km_rate || 1); // default 1 per km
+
+        var fare = base + (roundedKm * perKm);
         var eta = Math.ceil(route.summary.totalTime / 60);
 
-        document.getElementById('distance').textContent = roundedKm + " km";
-        document.getElementById('fare').textContent = fare;
-        document.getElementById('eta').textContent = eta + " min";
+        document.getElementById('distance').textContent = roundedKm + "";
+        document.getElementById('fare').textContent = fare.toFixed(2);
+        document.getElementById('eta').textContent = eta + "";
     }
 
     // Clear button
@@ -428,6 +501,7 @@ document.addEventListener("DOMContentLoaded", function() {
         selectedTerminal = null;
         selectedDestination = null;
         document.getElementById('selected-terminal').textContent = 'None';
+        document.getElementById('terminal-image').src = '';
         document.getElementById('selected-destination').textContent = 'None';
         document.getElementById('distance').textContent = '-';
         document.getElementById('fare').textContent = '-';
@@ -483,23 +557,24 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 
+
+                </div>
             </div>
+            <!-- End Page content -->
         </div>
-        <!-- End Page content -->
-    </div>
 
-    <!-- bundle -->
-    <script src="assets/js/vendor.min.js"></script>
-    <script src="assets/js/app.min.js"></script>
+        <!-- bundle -->
+        <script src="assets/js/vendor.min.js"></script>
+        <script src="assets/js/app.min.js"></script>
 
-    <!-- third party js -->
-    <script src="assets/js/vendor/apexcharts.min.js"></script>
-    <script src="assets/js/vendor/jquery-jvectormap-1.2.2.min.js"></script>
-    <script src="assets/js/vendor/jquery-jvectormap-world-mill-en.js"></script>
-    <!-- third party js ends -->
+        <!-- third party js -->
+        <script src="assets/js/vendor/apexcharts.min.js"></script>
+        <script src="assets/js/vendor/jquery-jvectormap-1.2.2.min.js"></script>
+        <script src="assets/js/vendor/jquery-jvectormap-world-mill-en.js"></script>
+        <!-- third party js ends -->
 
-    <!-- end demo js-->
-</body>
+        <!-- end demo js-->
+    </body>
 
 
 <!-- /hyper/saas/index.html [XR&CO'2014], Fri, 29 Jul 2022 10:20:07 GMT -->

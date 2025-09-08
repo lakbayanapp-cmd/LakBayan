@@ -22,41 +22,64 @@
                     
                     <!-- Start Content-->
                     <div class="container-fluid">
-  <?php
-                                                if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                                                    // Update session user data (for UI feedback)
-                                                    $_SESSION['user']['name'] = $_POST['name'] ?? $_SESSION['user']['name'];
-                                                    $_SESSION['user']['birthdate'] = $_POST['birthdate'] ?? $_SESSION['user']['birthdate'];
-                                                    $_SESSION['user']['address'] = $_POST['address'] ?? $_SESSION['user']['address'];
-                                                    $_SESSION['user']['email'] = $_POST['email'] ?? $_SESSION['user']['email'];
-                                                    $_SESSION['user']['number'] = $_POST['number'] ?? $_SESSION['user']['number'];
+ <?php
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Update session user data (for UI feedback)
+    $_SESSION['user']['name'] = $_POST['name'] ?? $_SESSION['user']['name'];
+    $_SESSION['user']['birthdate'] = $_POST['birthdate'] ?? $_SESSION['user']['birthdate'];
+    $_SESSION['user']['address'] = $_POST['address'] ?? $_SESSION['user']['address'];
+    $_SESSION['user']['email'] = $_POST['email'] ?? $_SESSION['user']['email'];
+    $_SESSION['user']['number'] = $_POST['number'] ?? $_SESSION['user']['number'];
 
-                                                    // Update in database as well
-                                                    if (isset($_SESSION['user']['id'])) {
-                                                        $userId = $_SESSION['user']['id'];
-                                                        $updateData = [
-                                                            'name' => $_SESSION['user']['name'],
-                                                            'birthdate' => $_SESSION['user']['birthdate'],
-                                                            'address' => $_SESSION['user']['address'],
-                                                            'email' => $_SESSION['user']['email'],
-                                                            'number' => $_SESSION['user']['number'],
-                                                        ];
-                                                        // Remove empty values
-                                                        foreach ($updateData as $k => $v) {
-                                                            if (is_string($v) && trim($v) === '') unset($updateData[$k]);
-                                                        }
-                                                        // Use db-Update
-                                                        $result = $db->update('users', $updateData, ['id' => $userId]);
-                                                        if ($result['status'] === 'success') {
-                                                            echo '<div class="alert alert-success mt-3">Profile updated!</div>';
-                                                        } else {
-                                                            echo '<div class="alert alert-danger mt-3">Update failed: ' . htmlspecialchars($result['message']) . '</div>';
-                                                        }
-                                                    } else {
-                                                        echo '<div class="alert alert-danger mt-3">User not found in session.</div>';
-                                                    }
-                                                }
-                                                ?>
+    // Handle profile image upload (save to assets/images/users/)
+    if (isset($_FILES['profile']) && $_FILES['profile']['error'] === UPLOAD_ERR_OK) {
+        $uploadDir = __DIR__ . '/assets/images/users/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        $fileTmp = $_FILES['profile']['tmp_name'];
+        $fileName = time() . '_' . basename($_FILES['profile']['name']);
+        $targetPath = $uploadDir . $fileName;
+
+        if (move_uploaded_file($fileTmp, $targetPath)) {
+            $_SESSION['user']['profile'] = $fileName; // save filename in session
+        }
+    }
+
+    // Update in database
+    if (isset($_SESSION['user']['id'])) {
+        $userId = $_SESSION['user']['id'];
+        $updateData = [
+            'name' => $_SESSION['user']['name'],
+            'birthdate' => $_SESSION['user']['birthdate'],
+            'address' => $_SESSION['user']['address'],
+            'email' => $_SESSION['user']['email'],
+            'number' => $_SESSION['user']['number'],
+        ];
+
+        // If a new profile image was uploaded
+        if (!empty($_SESSION['user']['profile'])) {
+            $updateData['profile'] = $_SESSION['user']['profile'];
+        }
+
+        // Remove empty values
+        foreach ($updateData as $k => $v) {
+            if (is_string($v) && trim($v) === '') unset($updateData[$k]);
+        }
+
+        $result = $db->update('users', $updateData, ['id' => $userId]);
+        if ($result['status'] === 'success') {
+            echo '<div class="alert alert-success mt-3">Profile updated!</div>';
+        } else {
+            echo '<div class="alert alert-danger mt-3">Update failed: ' . htmlspecialchars($result['message']) . '</div>';
+        }
+    } else {
+        echo '<div class="alert alert-danger mt-3">User not found in session.</div>';
+    }
+}
+?>
+
                         <!-- start page title -->
                         <div class="row">
                             <div class="col-12">
@@ -149,48 +172,60 @@ $exclude = [
                                                     $address = htmlspecialchars($user['address'] ?? '');
                                                     $birthdate = htmlspecialchars($user['birthdate'] ?? '');
                                                 ?>
-                                                <form method="post" action="">
-                                                    <h5 class="mb-4 text-uppercase"><i class="mdi mdi-account-circle me-1"></i> Personal Info</h5>
-                                                    <div class="row">
-                                                        <div class="col-md-6">
-                                                            <div class="mb-3">
-                                                                <label for="firstname" class="form-label">Name</label>
-                                                                <input type="text" class="form-control" id="firstname" name="name" value="<?php echo $firstName; ?>" placeholder="Enter name">
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-6">
-                                                            <div class="mb-3">
-                                                                <label for="birthdate" class="form-label">Birthdate</label>
-                                                                <input type="date" class="form-control" id="birthdate" name="birthdate" value="<?php echo $birthdate; ?>">
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="row">
-                                                        <div class="col-12">
-                                                            <div class="mb-3">
-                                                                <label for="userbio" class="form-label">Address</label>
-                                                                <input type="text" class="form-control" id="userbio" name="address" value="<?php echo $address; ?>" placeholder="address">
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="row">
-                                                        <div class="col-md-6">
-                                                            <div class="mb-3">
-                                                                <label for="useremail" class="form-label">Email Address</label>
-                                                                <input type="email" class="form-control" id="useremail" name="email" value="<?php echo $email; ?>" placeholder="Enter email">
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-6">
-                                                            <div class="mb-3">
-                                                                <label for="usernumber" class="form-label">Phone Number</label>
-                                                                <input type="text" class="form-control" id="usernumber" name="number" value="<?php echo $number; ?>" placeholder="Enter phone number">
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="text-end">
-                                                        <button type="submit" class="btn btn-success mt-2"><i class="mdi mdi-content-save"></i> Save</button>
-                                                    </div>
-                                                </form>
+                                   <form method="post" action="" enctype="multipart/form-data">
+    <h5 class="mb-4 text-uppercase"><i class="mdi mdi-account-circle me-1"></i> Personal Info</h5>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="firstname" class="form-label">Name</label>
+                <input type="text" class="form-control" id="firstname" name="name" value="<?php echo $firstName; ?>" placeholder="Enter name">
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="birthdate" class="form-label">Birthdate</label>
+                <input type="date" class="form-control" id="birthdate" name="birthdate" value="<?php echo $birthdate; ?>">
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12">
+            <div class="mb-3">
+                <label for="userbio" class="form-label">Address</label>
+                <input type="text" class="form-control" id="userbio" name="address" value="<?php echo $address; ?>" placeholder="address">
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="useremail" class="form-label">Email Address</label>
+                <input type="email" class="form-control" id="useremail" name="email" value="<?php echo $email; ?>" placeholder="Enter email">
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="usernumber" class="form-label">Phone Number</label>
+                <input type="text" class="form-control" id="usernumber" name="number" value="<?php echo $number; ?>" placeholder="Enter phone number">
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ New field for profile image -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="mb-3">
+                <label for="profile" class="form-label">Profile Image</label>
+                <input type="file" class="form-control" id="profile" name="profile">
+            </div>
+        </div>
+    </div>
+
+    <div class="text-end">
+        <button type="submit" class="btn btn-success mt-2"><i class="mdi mdi-content-save"></i> Save</button>
+    </div>
+</form>
+
                                         
                                             </div>
                                             <!-- end settings content-->
